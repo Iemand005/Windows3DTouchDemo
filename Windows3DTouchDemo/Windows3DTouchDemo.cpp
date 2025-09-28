@@ -127,7 +127,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     static HWND hWndButton;
-    RECT buttonRect = { 10, 10, 100, 30 };
+    RECT buttonRect = { 40, 40, 100, 30 };
 
     switch (message)
     {
@@ -138,7 +138,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             hWndButton = CreateWindow(
                 L"BUTTON",
                 L"OK",
-                WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON, buttonRect.left, buttonRect.top, 30, 100, hWnd, NULL, (HINSTANCE)GetWindowLongPtr(hWnd, GWLP_HINSTANCE), NULL);
+                WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON, buttonRect.left, buttonRect.top, buttonRect.right, buttonRect.bottom, hWnd, NULL, (HINSTANCE)GetWindowLongPtr(hWnd, GWLP_HINSTANCE), NULL);
 
         }
     case WM_INPUT:
@@ -150,12 +150,22 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
                 auto dimensions = data.touches[0].touch.dimensions;
                 double size = data.touches[0].touch.size;
-
-                if (hWndButton) {
+                
+                if (hWndButton && data.touchCount > 0) {
                     //HRGN rgn = {};
                     //RECT buttonRect = { 0, 0, dimensions.width, dimensions.height };
-                    double multiplier = (size / 100) + 1;
-                    SetWindowPos(hWndButton, NULL, 0, 0, 100 * multiplier, 30 * multiplier, SWP_NOZORDER);
+
+                    double bias = -30;
+                    double biasedSize = size + bias;
+                    if (biasedSize < 0) biasedSize = 0;
+                    double multiplier = (biasedSize / 100) + 1;
+
+                    RECT adjustedRect = { 0 };
+                    adjustedRect.bottom = buttonRect.bottom * multiplier;
+                    adjustedRect.right = buttonRect.right * multiplier;
+                    adjustedRect.top = buttonRect.top - (adjustedRect.bottom - buttonRect.bottom) / 2.0f;
+                    adjustedRect.left = buttonRect.left - (adjustedRect.right - buttonRect.right) / 2.0f;
+                    SetWindowPos(hWndButton, NULL, adjustedRect.left , adjustedRect.top, adjustedRect.right, adjustedRect.bottom, SWP_NOZORDER);
                     //InvalidateRect(hWnd, &buttonRect, TRUE);
                 }
             }
