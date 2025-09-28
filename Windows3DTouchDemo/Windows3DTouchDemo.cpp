@@ -2,8 +2,11 @@
 //
 
 #include "framework.h"
+#include <dwmapi.h>
 #include "Windows3DTouchDemo.h"
 #include "TouchpadReader.h"
+
+#pragma comment(lib, "dwmapi.lib")
 
 #define MAX_LOADSTRING 100
 
@@ -18,7 +21,6 @@ TouchpadReader *touchpad;
 ATOM                MyRegisterClass(HINSTANCE hInstance);
 BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
-INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -29,6 +31,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     UNREFERENCED_PARAMETER(lpCmdLine);
 
     // TODO: Place code here.
+    
 
     // Initialize global strings
     LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
@@ -78,7 +81,8 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     wcex.hInstance      = hInstance;
     wcex.hIcon          = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_WINDOWS3DTOUCHDEMO));
     wcex.hCursor        = LoadCursor(nullptr, IDC_ARROW);
-    wcex.hbrBackground  = (HBRUSH)(COLOR_WINDOW+1);
+    wcex.hbrBackground  = (HBRUSH)(COLOR_WINDOW + 1);
+    //wcex.hbrBackground  = (HBRUSH)CreateSolidBrush(RGB(0, 0, 0));
     wcex.lpszMenuName   = MAKEINTRESOURCEW(IDC_WINDOWS3DTOUCHDEMO);
     wcex.lpszClassName  = szWindowClass;
     wcex.hIconSm        = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_SMALL));
@@ -114,6 +118,26 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    return TRUE;
 }
 
+static void EnableMica(HWND hwnd)
+{
+    // Enable dark mode
+    BOOL darkMode = TRUE;
+    DwmSetWindowAttribute(hwnd, 20, &darkMode, sizeof(darkMode)); // DWMWA_USE_IMMERSIVE_DARK_MODE
+
+    // Set window corner preference
+    DWORD cornerPreference = 2; // DWMWCP_ROUND - rounded corners
+    DwmSetWindowAttribute(hwnd, 33, &cornerPreference, sizeof(cornerPreference));
+
+    // Enable Mica
+    const DWORD micaEnabled = 0x01;
+    DwmSetWindowAttribute(hwnd, 1029, &micaEnabled, sizeof(micaEnabled)); // DWMWA_MICA_EFFECT
+
+    // Make window transparent for Mica to show through
+    SetLayeredWindowAttributes(hwnd, 0, 255, LWA_ALPHA);
+
+
+}
+
 //
 //  FUNCTION: WndProc(HWND, UINT, WPARAM, LPARAM)
 //
@@ -126,21 +150,40 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 //
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    static HWND hWndButton;
+    static HWND hButton;
     RECT buttonRect = { 40, 40, 100, 30 };
+    RECT prevButtonRect = { 0 };
 
     switch (message)
     {
     case WM_CREATE:
         {
+            //EnableMica(hWnd);
+
+           
+
+            
+
             touchpad = new TouchpadReader(hWnd);
 
-            hWndButton = CreateWindow(
+            hButton = CreateWindow(
                 L"BUTTON",
                 L"OK",
                 WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON, buttonRect.left, buttonRect.top, buttonRect.right, buttonRect.bottom, hWnd, NULL, (HINSTANCE)GetWindowLongPtr(hWnd, GWLP_HINSTANCE), NULL);
-
+            
+            HFONT hFont = CreateFontW(
+                14, 0, 0, 0, FW_NORMAL,
+                FALSE, FALSE, FALSE,
+                DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
+                CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+                DEFAULT_PITCH, L"Segoe UI"
+            ); 
+            
+            if (hFont) {
+                SendMessage(hButton, WM_SETFONT, (WPARAM)hFont, TRUE);
+            }
         }
+        break;
     case WM_INPUT:
         {
             HRAWINPUT hRawInput = (HRAWINPUT)lParam;
@@ -151,34 +194,44 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 auto dimensions = data.touches[0].touch.dimensions;
                 double size = data.touches[0].touch.size;
                 
-                if (hWndButton && data.touchCount > 0) {
-                    //HRGN rgn = {};
-                    //RECT buttonRect = { 0, 0, dimensions.width, dimensions.height };
+                if (hButton && data.touchCount > 0) {
 
-                    double bias = -30;
-                    double biasedSize = size + bias;
-                    if (biasedSize < 0) biasedSize = 0;
-                    double multiplier = (biasedSize / 100) + 1;
+                    POINT cursorPos = { 0 };
+                    GetCursorPos(&cursorPos);
 
-                    RECT adjustedRect = { 0 };
-                    adjustedRect.bottom = buttonRect.bottom * multiplier;
-                    adjustedRect.right = buttonRect.right * multiplier;
-                    adjustedRect.top = buttonRect.top - (adjustedRect.bottom - buttonRect.bottom) / 2.0f;
-                    adjustedRect.left = buttonRect.left - (adjustedRect.right - buttonRect.right) / 2.0f;
-                    SetWindowPos(hWndButton, NULL, adjustedRect.left , adjustedRect.top, adjustedRect.right, adjustedRect.bottom, SWP_NOZORDER);
-                    //InvalidateRect(hWnd, &buttonRect, TRUE);
+                    ScreenToClient(hWnd, &cursorPos);
+
+                    if (true || PtInRect(&buttonRect, cursorPos))
+                    {
+                        OutputDebugString(L"WOW");
+
+                        double bias = -30;
+                        double biasedSize = size + bias;
+                        if (biasedSize < 0) biasedSize = 0;
+                        double multiplier = (biasedSize / 100) + 1;
+
+                        RECT adjustedRect = { 0 };
+                        adjustedRect.bottom = buttonRect.bottom * multiplier;
+                        adjustedRect.right = buttonRect.right * multiplier;
+                        adjustedRect.top = buttonRect.top - (adjustedRect.bottom - buttonRect.bottom) / 2.0f;
+                        adjustedRect.left = buttonRect.left - (adjustedRect.right - buttonRect.right) / 2.0f;
+                        SetWindowPos(hButton, NULL, adjustedRect.left, adjustedRect.top, adjustedRect.right, adjustedRect.bottom, SWP_NOZORDER | SWP_NOREDRAW);
+
+                        InvalidateRect(hWnd, &prevButtonRect, TRUE);
+                        prevButtonRect = adjustedRect;
+                        InvalidateRect(hButton, NULL, TRUE);
+                        UpdateWindow(hButton);
+                    }
                 }
             }
         }
+        break;
     case WM_COMMAND:
         {
             int wmId = LOWORD(wParam);
             // Parse the menu selections:
             switch (wmId)
             {
-            case IDM_ABOUT:
-                DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
-                break;
             case IDM_EXIT:
                 DestroyWindow(hWnd);
                 break;
@@ -187,6 +240,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             }
         }
         break;
+    /*case WM_ERASEBKGND:
+        return 1;*/
     case WM_PAINT:
         {
             PAINTSTRUCT ps;
@@ -197,6 +252,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             SIZE size;
             size.cx = 40;
             UpdateLayeredWindow(hWndButton, hdc, &dstSize, &size, )*/
+
+            //RECT rc;
+            //GetClientRect(hWnd, &rc);
+
+            //// Create a semi-transparent brush if you want some opacity
+            //HBRUSH hBrush = CreateSolidBrush(RGB(30, 30, 30));
+            //FillRect(hdc, &rc, hBrush);
+            //DeleteObject(hBrush);
             
 
             EndPaint(hWnd, &ps);
@@ -211,22 +274,3 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     return 0;
 }
 
-// Message handler for about box.
-INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
-{
-    UNREFERENCED_PARAMETER(lParam);
-    switch (message)
-    {
-    case WM_INITDIALOG:
-        return (INT_PTR)TRUE;
-
-    case WM_COMMAND:
-        if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
-        {
-            EndDialog(hDlg, LOWORD(wParam));
-            return (INT_PTR)TRUE;
-        }
-        break;
-    }
-    return (INT_PTR)FALSE;
-}

@@ -1,0 +1,9 @@
+namespace Windows3DTouchDemo
+{
+    [default_interface]
+    runtimeclass application : Windows.UI.Xaml.Controls.Page
+    {
+        application();
+        Int32 MyProperty;
+    }
+}
